@@ -117,6 +117,71 @@ else:
 
     st.header("Create a trip")
     st.write("Enter a trip name, choose your destination, and select your travel dates.")
+
+    if st.session_state.get("trip_created", False):
+        st.success("Trip created successfully!")
+
+        if st.button("Create another trip"):
+            st.session_state["trip_created"] = False
+            st.rerun()
+
+
+    with st.expander(
+        "Create a trip",
+        expanded=not st.session_state.get("trip_created", False),
+):
+        with st.form("create_trip_form"):
+            trip_name = st.text_input("Trip name")
+
+            try:
+                destinations = get_destinations(token)
+            except (requests.RequestException, ValueError) as error:
+                show_error(error)
+                destinations = []
+
+            if destinations:
+                destination_options = {
+                    f"{destination['name']} — {destination['city']}, {destination['country']} "
+                    f"(ID: {destination['id']})": destination["id"]
+                    for destination in destinations
+                }
+                selected_destination = st.selectbox(
+                    "Choose destination",
+                    options=list(destination_options.keys()),
+                )
+                destination_id = destination_options[selected_destination]
+            else:
+                st.warning("No destinations are available. Please try again.")
+                destination_id = None
+
+            start_date = st.date_input("Start date")
+            end_date = st.date_input("End date")
+            notes = st.text_area("Notes (optional)")
+            trip_submitted = st.form_submit_button("Save trip")
+
+        if trip_submitted:
+            if not trip_name.strip():
+                st.warning("Enter a trip name.")
+            elif destination_id is None:
+                st.warning("Choose an available destination.")
+            elif end_date < start_date:
+                st.warning("The end date must be on or after the start date.")
+            else:
+                trip_data = {
+                    "trip_name": trip_name.strip(),
+                    "destination_id": int(destination_id),
+                    "start_date": start_date.isoformat(),
+                    "end_date": end_date.isoformat(),
+                    "notes": notes.strip(),
+                }
+                try:
+                    create_trip(token, trip_data)
+                    st.session_state["trip_created"] = True
+                    st.success("Trip created successfully!")
+                    st.rerun()
+                except (requests.RequestException, ValueError) as error:
+                    show_error(error)
+
     st.header("Your trips")
     
     try:
@@ -233,59 +298,8 @@ else:
     except (requests.RequestException, ValueError) as error:
         show_error(error) 
 
-    with st.expander("Create a trip"):
-        with st.form("create_trip_form"):
-            trip_name = st.text_input("Trip name")
-            
-            try:
-                destinations = get_destinations(token)
-            except (requests.RequestException, ValueError) as error:
-                show_error(error)
-                destinations = []
-
-            if destinations:
-                destination_options = {
-                    f"{destination['name']} — {destination['city']}, {destination['country']} "
-                    f"(ID: {destination['id']})": destination["id"]
-                    for destination in destinations
-                }
-
-                selected_destination = st.selectbox(
-                    "Choose destination",
-                    options=list(destination_options.keys()),
-                )
-
-                destination_id = destination_options[selected_destination]
-            else:
-                st.warning("No destinations are available. Please try again.")
-                destination_id = None
-            start_date = st.date_input("Start date")
-            end_date = st.date_input("End date")
-            notes = st.text_area("Notes (optional)")
-            trip_submitted = st.form_submit_button("Save trip")
-
-        if trip_submitted:
-            if not trip_name.strip():
-                st.warning("Enter a trip name.")
-            elif destination_id is None:
-                st.warning("Choose an available destination.")
-            elif end_date < start_date:
-                st.warning("The end date must be on or after the start date.")
-            else:
-                trip_data = {
-                    "trip_name": trip_name.strip(),
-                    "destination_id": int(destination_id),
-                    "start_date": start_date.isoformat(),
-                    "end_date": end_date.isoformat(),
-                    "notes": notes.strip(),
-                }
-                try:
-                    create_trip(token, trip_data)
-                    st.success("Trip created!")
-                    st.rerun()
-                except (requests.RequestException, ValueError) as error:
-                    show_error(error)
-
+    
+                
     st.divider()
     st.header("Ask TravelWise AI")
     st.write("Ask a question about travel information in the knowledge base.")
