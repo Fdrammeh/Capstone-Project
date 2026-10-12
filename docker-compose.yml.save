@@ -1,0 +1,46 @@
+services:
+ollama:
+image: ollama/ollama:latest
+ports:
+- "11434:11434"
+volumes:
+- ollama_data:/root/.ollama
+restart: unless-stopped
+
+backend:
+build:
+context: .
+dockerfile: backend/Dockerfile
+ports:
+- "8000:8000"
+env_file:
+- .env
+environment:
+OLLAMA_URL: http://ollama:11434
+MODEL_NAME: llama3.2:1b
+DATABASE_URL: sqlite:////app/data/travel.db
+CHROMA_PATH: /app/chroma_data
+MAX_DISTANCE: "1.0"
+volumes:
+- ./data:/app/data
+- ./chroma_data:/app/chroma_data
+depends_on:
+- ollama
+restart: unless-stopped
+
+frontend:
+build:
+context: .
+dockerfile: frontend/Dockerfile
+ports:
+- "8501:8501"
+environment:
+API_URL: http://backend:8000
+depends_on:
+- backend
+restart: unless-stopped
+
+volumes:
+ollama_data:
+
+

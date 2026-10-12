@@ -1,0 +1,1 @@
+To run the main.py - *****python -m uvicorn backend.main:app --reload --port 8000***
