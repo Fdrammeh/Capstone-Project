@@ -36,7 +36,7 @@ create_access_token,
 get_current_user,
 )
 from backend.schemas import TokenResponse
-from backend.rag import ask_travel_question
+from backend.rag import ask_travel_question, ingest_documents
 from backend.schemas import QuestionRequest, AnswerResponse
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -329,3 +329,32 @@ def ask_question(
     
     result = ask_travel_question(question_data.question) 
     return result
+
+
+@app.post("/ingest")
+def ingest_travel_documents(
+    current_user: User = Depends(get_current_user),
+):
+    """Ingest travel documents into the ChromaDB knowledge base."""
+
+    try:
+        chunks_added = ingest_documents()
+
+        if chunks_added == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="No text documents found in the docs folder.",
+            )
+
+        return {
+            "message": "Travel documents ingested successfully.",
+            "chunks_added": chunks_added,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Document ingestion failed: {str(exc)}",
+        )

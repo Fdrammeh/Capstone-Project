@@ -20,6 +20,17 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #EDF5EA;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.title("✈️ TravelWise AI")
 st.write("Plan your trips and get AI-powered travel guidance.")
 
