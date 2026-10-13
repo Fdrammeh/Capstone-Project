@@ -55,7 +55,7 @@ A configured .env file
 
 Step 1: Clone the repository
 
-git clone https://github.com/CodingTemple-AI-Software-Engineering/module-09-capstone.git
+git clone https://github.com/Fdrammeh/Capstone-Project
 
 cd travelwise
 
