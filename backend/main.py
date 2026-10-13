@@ -38,16 +38,97 @@ get_current_user,
 from backend.schemas import TokenResponse
 from backend.rag import ask_travel_question, ingest_documents
 from backend.schemas import QuestionRequest, AnswerResponse
+from contextlib import asynccontextmanager
+from backend.database import SessionLocal
 # Create database tables
-Base.metadata.create_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 
-# Create FastAPI application
+# # Create FastAPI application
+# app = FastAPI(
+#     title="TravelWise AI",
+#     description="AI-powered travel planning assistant",
+#     version="1.0.0"
+# )
+
+def seed_destinations():
+    """Add default destinations without duplicating existing records."""
+    default_destinations = [
+        {
+            "name": "Chicago Getaway",
+            "city": "Chicago",
+            "country": "USA",
+            "description": (
+                "Explore Chicago attractions, museums, restaurants, "
+                "and the lakefront."
+            ),
+        },
+        {
+            "name": "Milwaukee City Break",
+            "city": "Milwaukee",
+            "country": "USA",
+            "description": (
+                "Explore Milwaukee's lakefront, museums, parks, "
+                "and local attractions."
+            ),
+        },
+        {
+            "name": "Minneapolis City Break",
+            "city": "Minneapolis",
+            "country": "USA",
+            "description": (
+                "Explore Minneapolis parks, lakes, museums, "
+                "and downtown attractions."
+            ),
+        },
+    ]
+
+    db = SessionLocal()
+    try:
+        for destination_data in default_destinations:
+            existing = (
+                db.query(Destination)
+                .filter(
+                    Destination.city == destination_data["city"],
+                    Destination.country == destination_data["country"],
+                )
+                .first()
+            )
+
+            if existing is None:
+                db.add(Destination(**destination_data))
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize the database and travel knowledge base at startup."""
+    Base.metadata.create_all(bind=engine)
+
+    seed_destinations()
+
+    chunks_added = ingest_documents()
+    print(
+        f"TravelWise startup: document ingestion processed "
+        f"{chunks_added} chunks."
+    )
+
+    yield
+
+
 app = FastAPI(
     title="TravelWise AI",
     description="AI-powered travel planning assistant",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
+
 
 
 @app.get("/")

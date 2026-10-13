@@ -1,42 +1,45 @@
-To run the main.py - *****python -m uvicorn backend.main:app --reload --port 8000***
+***The recommended way to run TravelWise AI is with Docker Compose:docker compose up --build -d***
+***For local development outside Docker, run the following command from the project root with the required Python dependencies installed:
 
-TravelWise AI is an AI-powered travel planning application that helps users organize trips and ask questions about travel destinations. It combines a FastAPI backend, a SQLite database, and a RAG - Retrieval-Augmented Generation system, to provide travel information using documents stored in a knowledge base.
+python -m uvicorn backend.main:app --reload --port 8000***
+
+TravelWise AI is an AI-powered travel planning application that helps users organize trips and ask questions about travel destinations. It combines a FastAPI backend, SQLite database, JWT authentication, and a Retrieval-Augmented Generation (RAG) system to provide document-grounded travel information.
+
+The application uses Streamlit for its user interface, ChromaDB for document retrieval, Sentence Transformers for embeddings, and Ollama to generate AI responses.
+
+1. Features
+
+-User registration and JWT authentication
+-Create, view, update, and delete personal trips
+-Browse available travel destinations
+-Ask natural-language questions about travel information
+-Retrieve relevant travel document chunks from ChromaDB
+-Generate answers using the Ollama llama3.2:1b model
+-Run the frontend, backend, and language model with Docker Compose
 
 2. Architecture Diagram
+User
+  |
+  v
+Streamlit Frontend (8501)
+  |
+  | HTTP requests
+  v
+FastAPI Backend (8000)
+  |
+  +------ SQLite / SQLAlchemy
+  |       Users, Trips, Destinations
+  |
+  +------ ChromaDB
+  |       Travel document chunks
+  |
+  +------ Ollama
+          llama3.2:1b
 
-┌─────────────────────────┐
-              │   User                  │
-              └────────────┬────────────┘
-                           │
-                           ▼
-              ┌─────────────────────────┐
-              │ Streamlit Frontend      │
-              │ Port 8501               │
-              └────────────┬────────────┘
-                           │ HTTP Requests
-                           ▼
-              ┌─────────────────────────┐
-              │ FastAPI Backend         │
-              │ Port 8000               │
-              │ JWT Authentication      │
-              │ Trip Management         │
-              │ RAG Question Answering  │
-              └──────┬──────────┬───────┘
-                     │          │
-             ┌───────▼────┐  ┌──▼────────────────┐
-             │ SQLite     │  │ RAG Knowledge Base│
-             │ SQLAlchemy │  │ ChromaDB          │
-             │ Users      │  │ Travel Documents  │
-             │ Trips      │  └────────┬──────────┘
-             │ Destinations│          │
-             └────────────┘           ▼
-                            ┌────────────────────┐
-                            │ Ollama             │
-                            │ llama3.2:1b        │
-                            │ AI Responses       │
-                            └────────────────────┘
+
+
 Docker Compose
-       Runs the frontend, backend, and Ollama
+       Runs the frontend, backend, and Ollama. The backend handles authentication, trip management, document retrieval, and AI question answering.
 
 3. Prerequisites
 
@@ -46,12 +49,13 @@ Docker Compose — starts and connects the application services.
 Python 3.9 or newer — used for local development and testing.
 Git — used to clone the project repository.
 The application uses Ollama with the llama3.2:1b model. Docker Compose manages the Ollama service for the containerized application.
+A configured .env file
 
 4. Setup Instructions
 
 Step 1: Clone the repository
 
-git clone (https://github.com/CodingTemple-AI-Software-Engineering/module-09-capstone.git)
+git clone https://github.com/CodingTemple-AI-Software-Engineering/module-09-capstone.git
 
 cd travelwise
 
@@ -73,24 +77,22 @@ docker compose up --build -d
 This builds the images if necessary and starts the application services in the background.
 
 Step 4: Verify the services
-
-Check the running containers:
-
-docker compose ps
-
-Open the application:
-
-TravelWise AI frontend: http://localhost:8501
-
-FastAPI interactive documentation: http://localhost:8000/docs
-
+Frontend: http://localhost:8501
+FastAPI Documentation:http://localhost:8000/docs
 API health check: http://localhost:8000/health
-
 
 To stop the application:
 docker compose down
 
-5. Usage Guide
+5. Database Setup and Destinations
+
+TravelWise stores users, trips, and destinations in SQLite using SQLAlchemy.
+
+Destinations must exist in the database before users can select them when creating trips. Creating the database tables does not, by itself, guarantee that destination records have been added.
+
+The project currently includes travel documents for Chicago, Milwaukee, and Minneapolis. Ensure that the corresponding destination records exist in the database before using those destinations in trips.Verify the available destinations in the frontend or by calling GET /destinations with a valid access token.
+
+6. Usage Guide
 
 Create an account and log in
 
@@ -111,39 +113,62 @@ Ask travel questions
 
 -Open the AI question-answering section.
 -Enter a question about Chicago travel, attractions, transportation, food, or activities.
--Submit the question.
+-Submit the question, fior example "What are the top attractions in Chicago, and what public transportation options can visitors use?"
 -The RAG system retrieves relevant information from its travel knowledge base and uses the language model to generate an answer.
 
 Travel document ingestion
 
-The project includes travel documents in the docs/ directory:
+Travel documents are stored in the root docs/ directory. The knowledge base is populated or refreshed through the authenticated POST /ingest endpoint.
+ngestion is triggered through /ingest; starting Docker Compose does not automatically re-indexes the documents.
 
+To ingest or refresh the documents:
+
+Open http://localhost:8000/docs.
+-Register or log in through the authentication endpoints.
+-Authorize the API documentation with a valid JWT access token.
+-Find POST /ingest and execute the request.
+-Check the response to confirm whether ingestion succeeded.
+
+
+-The project includes the following travel documents in the docs/ directory:
 chicago_overview.txt
-attractions.txt
-transportation.txt
-food_and_activities.txt
+chicago_attractions.txt
+chicago_transportation.txt
+chicago_food_and_activities.txt
+milwaukee_overview.txt
+milwaukee_attractions.txt
+milwaukee_transportation.txt
+milwaukee_food_and_activities.txt
+minneapolis_overview.txt
+minneapolis_attractions.txt
+minneapolis_transportation.txt
+minneapolis_food_and_activities.txt
 
-These documents provide the information used by the RAG system. Document ingestion loads the text, divides it into chunks, creates embeddings, and stores them in ChromaDB for retrieval.
+During ingestion, the application reads the text files, divides their content into chunks, generates embeddings using Sentence Transformers, and stores the chunks in ChromaDB for semantic retrieval.
 
-Note: Confirm how ingestion is triggered in the current implementation—such as automatically at startup or through a separate ingestion command—before documenting a specific command here.
+The backend also automatically seeds the SQLite database with default destinations for Chicago, Milwaukee, and Minneapolis if they are missing.
 
+To start the application and trigger initialization, run this command from the project root:
+
+docker compose up --build -d
 
 6. API Endpoints
 
 The following endpoints are defined in the FastAPI backend.
 
-Method Endpoint	      Description                              Auth
-POST /auth/register	  register a new user                       No
-POST /auth/token	  log in/access anew token                  No
-GET	 /auth/me	       Retrieve current user info.             Yes
-GET	 /destinations	   Retrieve available destination          No
-POST /ask	           Ask a travel question using RAG system  No
-GET	 /trips	           Retriev current user's trips             Yes
-POST /trips	           Create a trip                            Yes
-PATCH /trips/{trip_id}  Update an exixting trip	                Yes
-DELETE /trips/{trip_id}	Delete a trip                           Yes
-GET    /health          Check appliction health                  No
-GET   /ingest           Ingest travel documents into chromadb    Yes
+Method Endpoint	      Description                             Auth
+POST   /auth/register	    register a new user                No
+POST   /auth/token	    log in & obtain access token              No
+GET	 /auth/me	    Retrieve current user info.               Yes
+GET	 /destinations    Retrieve available destination            Yes
+POST   /ask	           Ask a travel question using RAG system    Yes
+GET	 /trips	    Retriev current user's trips              Yes
+POST   /trips	           Create a trip                             Yes
+PATCH  /trips/{trip_id}  Update an exixting trip	                  Yes
+DELETE /trips/{trip_id} Delete a trip                              Yes
+GET    /health          Check appliction health                    No
+POST   /ingest          Ingest travel documents into chromadb      Yes
+GET    /                 Welcome message                            No     
 
 Protected endpoints require a valid JWT access token. Register and log in to obtain a token, then use the Authorize control in the interactive API documentation.
 
@@ -180,23 +205,20 @@ docker compose exec backend python -m pytest backend/tests/ -v
 
 The test files are:
 
-Authentication tests: user registration, login, and protected routes.
+-test_auth.py — tests user registration, login, and protected routes.
+-test_crud.py — tests database operations.
+-test_rag.py — tests document retrieval, question answering, sources, and relevance guardrails.
 
-CRUD tests: creating and listing database records.
-
-RAG tests: retrieving travel documents, generating answers with sources, and applying relevance guardrails.
-
-Latest test results: 8 tests passed, 0 failed.
+Latest recorded test results: 9 tests passed, 0 failed, with 5 deprecation warnings. These warnings did not cause any tests to fail.
 
 The test suite completed successfully in 40.67 seconds. Five deprecation warnings were reported; they did not cause any tests to fail.
 
  Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================================================================= 8 passed, in 40.67s ==================================================================
+================================================================= 8 passed, 5 warnings in 40.67s ==================================================================
 
 The -v option displays each test and its result. Confirmed that at least five tests pass before submitting my capstone.
 
-Project Structure
-
+Project Structure:
 travelwise/
 ├── backend/
 │   ├── main.py
@@ -221,3 +243,25 @@ travelwise/
 ├── docker-compose.yml
 └── README.md
 
+10. troubleshooting
+Docker services are not running
+Check the service status:
+       docker compose ps
+View backend logs for errors:
+       docker compose logs --tail=80 backend
+
+If you changed backend code or dependencies, rebuild the backend:
+       docker compose up -d --build backend
+
+TravelWise cannot find relevant documents:
+
+Confirm that the expected files exist in docs/, then trigger the authenticated POST /ingest endpoint through http://localhost:8000/docs. Check the endpoint response and backend logs.
+
+The AI assistant is unavailable:
+       Check the service status and backend logs:
+
+docker compose ps
+docker compose logs --tail=80 backend
+docker compose logs --tail=80 ollama
+
+Confirm that Ollama is running, that the configured model is available, and that the backend uses the correct Ollama service URL when running inside Docker.

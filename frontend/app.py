@@ -41,18 +41,27 @@ if "username" not in st.session_state:
     st.session_state.username = None
 
 
+
 def show_error(error):
-    """Display a readable API error."""
-    if isinstance(error, requests.HTTPError) and error.response is not None:
-        try:
-            detail = error.response.json().get("detail", error.response.text)
-        except ValueError:
-            detail = error.response.text
-        st.error(f"Request failed: {detail}")
+    """Display a friendly message without exposing technical details."""
+    message = str(error)
+
+    if isinstance(error, requests.Timeout):
+        st.error(
+            "The request took too long. Please try again later."
+        )
+    elif isinstance(error, requests.ConnectionError):
+        st.error(
+            "TravelWise cannot connect to the backend. "
+            "Please check that the application is running."
+        )
     elif isinstance(error, requests.RequestException):
-        st.error("Could not connect to the backend. Please try again.")
+        st.error(message)
     else:
-        st.error(f"Something went wrong: {error}")
+        st.error(
+            "Something went wrong. Please try again. "
+            "If the problem continues, check the application logs."
+        )
 
 
 if not st.session_state.token:

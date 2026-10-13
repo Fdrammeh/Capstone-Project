@@ -26,6 +26,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./chroma_data:/app/chroma_data
+      - ./docs:/app/docs
     depends_on:
       - ollama
     restart: unless-stopped

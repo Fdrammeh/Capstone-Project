@@ -129,7 +129,7 @@ def retrieve(question: str, n_results: int = 3) -> list:
     ):
         chunks.append({
             "text": document,
-            "source": metadata.get("source", "unknown"),
+            "source": (metadata or {}).get("source", "unknown"),
             "distance": distance,
         })
 
@@ -147,11 +147,21 @@ def generate_answer(question: str, context_chunks: list) -> str:
     )
 
     prompt = f"""
-You are TravelWise, a helpful travel assistant.
+You are TravelWise, a reliable travel assistant.
 
-Answer the user's question using only the travel information below.
-Do not repeat attractions. If the information does not answer the
-question, say you do not have enough information. Do not invent facts.
+Answer the user's question using only the facts in the travel information below.
+
+Follow these rules:
+1. Answer every part of the question that the documents support.
+2. Use attraction names exactly as written in the documents. Do not rename or invent attractions.
+3. Use short headings and bullet points when answering questions about multiple topics.
+4. Do not repeat attractions or transportation options.
+5. Do not say information is missing when the documents already answer that part of the question.
+6. If a specific detail is missing, identify only that detail. Still provide all relevant information that is available.
+7. Do not use outside knowledge or invent facts.
+8. Keep the answer clear, concise, and helpful. 
+9. For questions about attractions, organize the answer into categories such as museums and cultural attractions, landmarks, and outdoor attractions when the context supports them. Include the relevant named attractions found in the provided context. Do not invent attraction names or details.
+
 
 Travel information:
 {context}
@@ -159,28 +169,77 @@ Travel information:
 User question:
 {question}
 
-Give a clear, concise answer:
+Answer:
+
 """
 
-    response = requests.post(
-        f"{OLLAMA_URL.rstrip('/')}/api/generate",
-        json={
-            "model": MODEL_NAME,
-            "prompt": prompt,
-            "stream": False
-        },
-        timeout=120
-    )
+    
+    try:
+        response = requests.post(
+            f"{OLLAMA_URL.rstrip('/')}/api/generate",
+            json={
+                "model": MODEL_NAME,
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=120
+        )
 
-    response.raise_for_status()
-    return response.json()["response"].strip()
+        response.raise_for_status()
+        return response.json()["response"].strip()
+
+    except requests.exceptions.Timeout:
+        return "The travel assistant took too long to respond. Please try again later."
+
+    except requests.exceptions.RequestException:
+        return "The travel assistant is temporarily unavailable. Please try again later."
+
+    except (KeyError, ValueError):
+        return "The travel assistant returned an invalid response. Please try again later."
+
+
 
 
 def ask_travel_question(question: str):
     """Retrieve relevant travel information and return an answer with sources."""
 
+    question_lower = question.lower()
+    cities = ["chicago", "milwaukee", "minneapolis"]
+    city = next((name for name in cities if name in question_lower), None)
+
     # Step 1: Retrieve relevant document chunks
-    chunks = retrieve(question, n_results=3)
+    if (
+        city
+        and "attraction" in question_lower
+        and "transport" in question_lower
+    ):
+        attraction_chunks = retrieve(
+            f"{city} museums, cultural attractions, landmarks, parks, and tourist attractions",
+            n_results=4,
+        )
+
+        transportation_chunks = retrieve(
+            f"{city} public transportation, buses, light rail, transit, and transportation options",
+            n_results=4,
+        )
+
+        combined_chunks = attraction_chunks + transportation_chunks
+
+        # Remove duplicate chunks
+        seen = set()
+        chunks = []
+
+        for chunk in combined_chunks:
+            key = (chunk["source"], chunk["text"])
+
+            if key not in seen:
+                seen.add(key)
+                chunks.append(chunk)
+
+        chunks.sort(key=lambda chunk: chunk["distance"])
+
+    else:
+        chunks = retrieve(question, n_results=8)
 
     if not chunks:
         return {
@@ -195,7 +254,7 @@ def ask_travel_question(question: str):
         return {
             "answer": "I don't have enough relevant information in my travel documents to answer that question.",
             "sources": []
-            }
+        }
 
     # Step 3: Generate the answer
     answer = generate_answer(question, chunks)
@@ -211,8 +270,3 @@ def ask_travel_question(question: str):
         "answer": answer,
         "sources": sources
     }
-
-
-
-
-    

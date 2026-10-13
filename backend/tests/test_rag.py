@@ -1,4 +1,9 @@
+
+from unittest.mock import patch
+from requests.exceptions import ConnectionError
 from backend.rag import retrieve, ask_travel_question
+from fastapi.testclient import TestClient
+from backend.main import app
 
 
 def test_retrieve_finds_travel_documents():
@@ -35,3 +40,45 @@ def test_unrelated_question_uses_guardrail():
     assert "enough relevant information" in result["answer"].lower()
     assert result["sources"] == []
 
+
+
+
+def test_ask_handles_ollama_unavailable():
+    """Check that /ask handles an Ollama connection failure gracefully."""
+    client = TestClient(app)
+
+    # Register a test user. If the user already exists, continue.
+    client.post(
+        "/auth/register",
+        json={
+            "username": "rag_failure_test_user",
+            "email": "rag_failure_test_user@example.com",
+            "password": "TestPassword123!",
+        },
+    )
+
+    # Log in to obtain an access token.
+    login_response = client.post(
+        "/auth/token",
+        data={
+            "username": "rag_failure_test_user",
+            "password": "TestPassword123!",
+        },
+    )
+
+    assert login_response.status_code == 200
+    token = login_response.json()["access_token"]
+
+    # Simulate Ollama being unavailable.
+    with patch(
+        "backend.rag.requests.post",
+        side_effect=ConnectionError("Ollama is unavailable"),
+    ):
+        response = client.post(
+            "/ask",
+            json={"question": "What can I visit in Chicago?"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    assert response.status_code == 200
+    assert "temporarily unavailable" in response.json()["answer"].lower()
