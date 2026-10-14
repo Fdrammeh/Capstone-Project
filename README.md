@@ -57,7 +57,7 @@ Step 1: Clone the repository
 
 git clone https://github.com/Fdrammeh/Capstone-Project
 
-cd travelwise
+cd Capstone-Project/travelwise
 
 If you already have the project on your computer, navigate to the existing project folder instead.
 
@@ -214,7 +214,7 @@ Latest recorded test results: 9 tests passed, 0 failed, with 5 deprecation warni
 The test suite completed successfully in 40.67 seconds. Five deprecation warnings were reported; they did not cause any tests to fail.
 
  Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-================================================================= 8 passed, 5 warnings in 40.67s ==================================================================
+================================================================= 9 passed, 5 warnings in 40.67s ==================================================================
 
 The -v option displays each test and its result. Confirmed that at least five tests pass before submitting my capstone.
 
